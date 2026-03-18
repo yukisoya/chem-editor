@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# uv
+uv.lock
+
+# Node
+node_modules/
+
+# Ketcher build output (rebuild with: cd ketcher-app && npm run build)
+static/ketcher/
+
+# App data
+data/
+
+# Playwright
+/test-results/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp

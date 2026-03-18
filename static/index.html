@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chem Editor</title>
+<style>
+/* ===== Reset & Base ===== */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+  background:#f0f4f8;color:#1e293b;display:flex;flex-direction:column;
+}
+
+/* ===== Header ===== */
+header{
+  background:linear-gradient(135deg,#0f2942 0%,#1a5276 50%,#1e6f8e 100%);
+  color:#fff;padding:10px 24px;display:flex;justify-content:space-between;align-items:center;
+  box-shadow:0 2px 12px rgba(0,0,0,.2);z-index:10;flex-shrink:0;
+}
+header h1{font-size:1.3rem;font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:8px}
+header h1 .logo{font-size:1.5rem}
+.header-actions{display:flex;gap:6px}
+.header-actions button{
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);
+  color:#fff;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:.82rem;
+  transition:all .2s;font-weight:500;
+}
+.header-actions button:hover{background:rgba(255,255,255,.22);transform:translateY(-1px)}
+.header-actions button:active{transform:translateY(0)}
+
+/* ===== Main Layout ===== */
+main{flex:1;display:flex;overflow:hidden;min-height:0}
+
+/* ===== Editor Panel (left) ===== */
+.editor-panel{
+  display:flex;flex-direction:column;
+  background:#fff;min-width:200px;overflow:hidden;
+}
+#ketcher-frame{flex:1;border:none;width:100%;min-height:0}
+.ketcher-loading{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  font-size:1rem;color:#64748b;flex-direction:column;gap:12px;
+}
+.ketcher-loading .spinner{
+  width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#2563eb;
+  border-radius:50%;animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ===== Stock Bar ===== */
+.stock-bar{
+  padding:10px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;
+  display:flex;gap:8px;align-items:center;flex-shrink:0;
+}
+.stock-bar input{
+  padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;
+  font-size:.88rem;flex:1;min-width:0;background:#fff;
+  transition:border-color .2s,box-shadow .2s;
+}
+.stock-bar input:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.stock-bar input::placeholder{color:#94a3b8}
+#stock-btn{
+  background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;
+  padding:8px 28px;border-radius:6px;font-size:.92rem;font-weight:600;
+  cursor:pointer;transition:all .2s;white-space:nowrap;letter-spacing:.3px;
+}
+#stock-btn:hover{box-shadow:0 4px 14px rgba(37,99,235,.35);transform:translateY(-1px)}
+#stock-btn:active{transform:translateY(0)}
+#stock-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* ===== Resize Handle ===== */
+.resize-handle{
+  flex-shrink:0;width:6px;cursor:col-resize;background:#e2e8f0;
+  position:relative;z-index:5;transition:background .15s;
+}
+.resize-handle:hover,.resize-handle.active{background:#94a3b8}
+.resize-handle::after{
+  content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:2px;height:32px;background:#94a3b8;border-radius:1px;
+}
+.resize-handle:hover::after,.resize-handle.active::after{background:#475569}
+
+/* ===== List Panel (right) ===== */
+.list-panel{flex:1;display:flex;flex-direction:column;background:#f0f4f8;min-width:150px;overflow:hidden}
+.list-header{
+  padding:10px 16px;background:#fff;border-bottom:1px solid #e2e8f0;
+  display:flex;justify-content:space-between;align-items:center;flex-shrink:0;gap:8px;
+}
+.list-header h2{font-size:1rem;color:#334155;font-weight:600;white-space:nowrap}
+.list-header .badge{
+  background:#2563eb;color:#fff;font-size:.72rem;padding:2px 8px;
+  border-radius:12px;font-weight:600;min-width:22px;text-align:center;
+}
+.btn-reset{
+  background:#fef2f2;border:1px solid #fecaca;color:#dc2626;
+  padding:4px 12px;border-radius:5px;cursor:pointer;font-size:.75rem;
+  font-weight:500;transition:all .15s;white-space:nowrap;
+}
+.btn-reset:hover{background:#fee2e2}
+
+/* ===== Compound Grid ===== */
+#compound-list{
+  flex:1;overflow-y:auto;padding:10px;
+  display:flex;flex-wrap:wrap;align-content:flex-start;gap:8px;
+}
+#compound-list::-webkit-scrollbar{width:6px}
+#compound-list::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+#compound-list::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+
+.empty-state{
+  width:100%;text-align:center;color:#94a3b8;padding:60px 20px;font-size:.9rem;line-height:1.8;
+}
+
+/* ===== Compound Thumbnail ===== */
+.compound-thumb{
+  position:relative;background:#fff;border-radius:8px;overflow:hidden;
+  box-shadow:0 1px 3px rgba(0,0,0,.06);
+  transition:all .2s ease;animation:cardIn .3s ease;
+  width:130px;height:110px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;
+}
+.compound-thumb:hover{
+  box-shadow:0 4px 16px rgba(0,0,0,.13);transform:translateY(-2px);z-index:2;
+}
+@keyframes cardIn{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.compound-thumb img{max-width:100%;max-height:100%;display:block;padding:4px}
+.compound-thumb .thumb-placeholder{color:#cbd5e1;font-size:.75rem}
+.compound-thumb .thumb-actions{
+  position:absolute;top:3px;right:3px;display:flex;gap:2px;
+  opacity:0;transition:opacity .15s;
+}
+.compound-thumb:hover .thumb-actions{opacity:1}
+.thumb-btn{
+  width:22px;height:22px;border-radius:4px;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;line-height:1;transition:all .1s;
+}
+.thumb-btn-load{background:rgba(37,99,235,.85);color:#fff}
+.thumb-btn-load:hover{background:rgba(37,99,235,1)}
+.thumb-btn-del{background:rgba(220,38,38,.8);color:#fff}
+.thumb-btn-del:hover{background:rgba(220,38,38,1)}
+
+/* ===== Tooltip ===== */
+.chem-tooltip{
+  position:fixed;z-index:9000;pointer-events:none;
+  background:#1e293b;color:#fff;padding:10px 14px;border-radius:8px;
+  font-size:.8rem;line-height:1.5;max-width:320px;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);
+  opacity:0;transition:opacity .15s;
+}
+.chem-tooltip.visible{opacity:1}
+.chem-tooltip .tt-name{font-weight:600;font-size:.88rem;margin-bottom:3px}
+.chem-tooltip .tt-formula{color:#93c5fd;font-size:.78rem}
+.chem-tooltip .tt-smiles{
+  font-family:'SF Mono','Fira Code',monospace;font-size:.72rem;
+  color:#94a3b8;word-break:break-all;margin-top:2px;
+}
+.chem-tooltip .tt-memo{color:#fbbf24;font-size:.76rem;margin-top:3px;font-style:italic}
+.chem-tooltip .tt-date{color:#64748b;font-size:.7rem;margin-top:2px}
+
+/* ===== Toast ===== */
+#toast-container{
+  position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column-reverse;
+  gap:8px;z-index:9999;pointer-events:none;
+}
+.toast{
+  padding:10px 20px;border-radius:8px;font-size:.88rem;font-weight:500;
+  box-shadow:0 4px 16px rgba(0,0,0,.12);opacity:0;transform:translateY(10px);
+  transition:all .3s ease;pointer-events:auto;max-width:360px;
+}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast-success{background:#059669;color:#fff}
+.toast-error{background:#dc2626;color:#fff}
+.toast-warning{background:#d97706;color:#fff}
+.toast-info{background:#2563eb;color:#fff}
+
+/* ===== Responsive ===== */
+@media(max-width:900px){
+  main{flex-direction:column}
+  .editor-panel{min-height:40vh;border-right:none;border-bottom:1px solid #cbd5e1}
+  .resize-handle{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<header>
+  <h1><span class="logo">&#9883;</span> Chem Editor</h1>
+  <div class="header-actions">
+    <button onclick="saveData()" title="Save data to server">Save</button>
+    <button onclick="exportCSV()">CSV Export</button>
+    <button onclick="exportSDF()">SDF Export</button>
+  </div>
+</header>
+
+<!-- ===== Main ===== -->
+<main>
+  <!-- Editor -->
+  <div class="editor-panel" id="editor-panel">
+    <iframe id="ketcher-frame" src="/static/ketcher/index.html" style="display:none"></iframe>
+    <div class="ketcher-loading" id="ketcher-loading">
+      <div class="spinner"></div>
+      <span>Loading Ketcher Editor...</span>
+    </div>
+    <div class="stock-bar">
+      <input type="text" id="compound-name" placeholder="Name (auto if blank)" maxlength="120">
+      <input type="text" id="compound-memo" placeholder="Memo" maxlength="300">
+      <button id="stock-btn" disabled onclick="stockCompound()">Stock</button>
+    </div>
+  </div>
+
+  <!-- Drag handle -->
+  <div class="resize-handle" id="resize-handle"></div>
+
+  <!-- Stock List -->
+  <div class="list-panel" id="list-panel">
+    <div class="list-header">
+      <h2>Stock List</h2>
+      <span class="badge" id="count">0</span>
+      <button class="btn-reset" onclick="resetAll()">Reset All</button>
+    </div>
+    <div id="compound-list">
+      <div class="empty-state">No compounds stocked yet.<br>Draw a structure in Ketcher and click Stock.</div>
+    </div>
+  </div>
+</main>
+
+<!-- Tooltip -->
+<div class="chem-tooltip" id="chem-tooltip"></div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+/* ================================================================
+   Chem Editor - Frontend Logic
+   ================================================================ */
+
+let ketcher = null;
+let compounds = [];
+
+// -------------------------------------------------------------------
+// Ketcher Initialization
+// -------------------------------------------------------------------
+function initKetcher() {
+  const frame = document.getElementById('ketcher-frame');
+  const loading = document.getElementById('ketcher-loading');
+  const btn = document.getElementById('stock-btn');
+  let attempts = 0;
+  let resolved = false;
+
+  function onReady() {
+    if (resolved) return;
+    resolved = true;
+    ketcher = frame.contentWindow.ketcher;
+    frame.style.display = 'block';
+    loading.style.display = 'none';
+    btn.disabled = false;
+    console.log('Ketcher ready');
+  }
+
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'ketcher-ready') onReady();
+    if (e.data && e.data.type === 'ketcher-error') {
+      loading.innerHTML = '<span style="color:#dc2626;font-size:.85rem;white-space:pre-wrap">'
+        + 'Ketcher error:\n' + e.data.error + '</span>';
+    }
+  });
+
+  const check = setInterval(() => {
+    attempts++;
+    try {
+      if (frame.contentWindow && frame.contentWindow.ketcher) {
+        clearInterval(check);
+        onReady();
+      }
+    } catch (e) { /* not ready */ }
+    if (attempts > 120) {
+      clearInterval(check);
+      if (!resolved) {
+        loading.innerHTML = '<span style="color:#dc2626">Failed to load Ketcher.<br>Please refresh the page.</span>';
+      }
+    }
+  }, 500);
+}
+
+// -------------------------------------------------------------------
+// Resizable Panels
+// -------------------------------------------------------------------
+function initResize() {
+  const handle = document.getElementById('resize-handle');
+  const editor = document.getElementById('editor-panel');
+  const mainEl = document.querySelector('main');
+  let dragging = false;
+
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    handle.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    // Prevent iframe from eating mouse events
+    document.getElementById('ketcher-frame').style.pointerEvents = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const rect = mainEl.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pct = (x / rect.width) * 100;
+    const clamped = Math.max(20, Math.min(85, pct));
+    editor.style.flex = 'none';
+    editor.style.width = clamped + '%';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.getElementById('ketcher-frame').style.pointerEvents = '';
+  });
+}
+
+// -------------------------------------------------------------------
+// Tooltip
+// -------------------------------------------------------------------
+function initTooltip() {
+  const tip = document.getElementById('chem-tooltip');
+  let currentId = null;
+
+  document.getElementById('compound-list').addEventListener('mouseover', (e) => {
+    const thumb = e.target.closest('.compound-thumb');
+    if (!thumb) { hideTooltip(); return; }
+    const id = thumb.dataset.id;
+    if (id === currentId) return;
+    currentId = id;
+    const c = compounds.find(x => x.id === id);
+    if (!c) return;
+
+    let html = '<div class="tt-name">' + esc(c.name) + '</div>';
+    if (c.formula) html += '<div class="tt-formula">' + esc(c.formula) + ' &middot; MW ' + (c.mw ? c.mw.toFixed(2) : '?') + '</div>';
+    html += '<div class="tt-smiles">' + esc(c.smiles || '-') + '</div>';
+    if (c.memo) html += '<div class="tt-memo">' + esc(c.memo) + '</div>';
+    html += '<div class="tt-date">' + fmtDate(c.created_at) + '</div>';
+    tip.innerHTML = html;
+    tip.classList.add('visible');
+    positionTooltip(e);
+  });
+
+  document.getElementById('compound-list').addEventListener('mousemove', (e) => {
+    if (currentId) positionTooltip(e);
+  });
+
+  document.getElementById('compound-list').addEventListener('mouseleave', hideTooltip);
+
+  function positionTooltip(e) {
+    const pad = 12;
+    let x = e.clientX + pad;
+    let y = e.clientY + pad;
+    // Prevent overflow
+    const tw = tip.offsetWidth || 200;
+    const th = tip.offsetHeight || 100;
+    if (x + tw > window.innerWidth - pad) x = e.clientX - tw - pad;
+    if (y + th > window.innerHeight - pad) y = e.clientY - th - pad;
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  }
+
+  function hideTooltip() {
+    currentId = null;
+    tip.classList.remove('visible');
+  }
+}
+
+// -------------------------------------------------------------------
+// Stock Compound
+// -------------------------------------------------------------------
+async function stockCompound() {
+  if (!ketcher) { showToast('Ketcher is not ready', 'error'); return; }
+
+  const btn = document.getElementById('stock-btn');
+  btn.disabled = true;
+  btn.textContent = 'Stocking...';
+
+  try {
+    let smiles = '';
+    let molfile = '';
+
+    try { smiles = await ketcher.getSmiles(); } catch (_) {}
+    try { molfile = await ketcher.getMolfile('v2000'); } catch (_) {}
+
+    if ((!smiles || smiles.trim() === '') && (!molfile || !molfile.includes('M  END'))) {
+      showToast('Draw a structure first.', 'warning');
+      return;
+    }
+
+    const name = document.getElementById('compound-name').value.trim();
+    const memo = document.getElementById('compound-memo').value.trim();
+
+    const resp = await fetch('/api/compounds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, smiles, molfile, memo }),
+    });
+
+    if (!resp.ok) throw new Error(await resp.text());
+
+    const compound = await resp.json();
+    compounds.push(compound);
+    renderCompounds();
+
+    document.getElementById('compound-name').value = '';
+    document.getElementById('compound-memo').value = '';
+
+    showToast('"' + compound.name + '" stocked.', 'success');
+  } catch (e) {
+    console.error(e);
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Stock';
+  }
+}
+
+// -------------------------------------------------------------------
+// Load Compound List
+// -------------------------------------------------------------------
+async function loadCompounds() {
+  try {
+    const resp = await fetch('/api/compounds');
+    compounds = await resp.json();
+    renderCompounds();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// -------------------------------------------------------------------
+// Render Compound List (thumbnail grid)
+// -------------------------------------------------------------------
+function renderCompounds() {
+  const list = document.getElementById('compound-list');
+  const badge = document.getElementById('count');
+  badge.textContent = compounds.length;
+
+  if (compounds.length === 0) {
+    list.innerHTML = '<div class="empty-state">No compounds stocked yet.<br>Draw a structure in Ketcher and click Stock.</div>';
+    return;
+  }
+
+  const sorted = [...compounds].reverse();
+  list.innerHTML = sorted.map(c => ''
+    + '<div class="compound-thumb" data-id="' + c.id + '">'
+    +   '<img src="/api/compounds/' + c.id + '/svg" alt="' + esc(c.name) + '" loading="lazy"'
+    +   ' onerror="this.outerHTML=\'<span class=thumb-placeholder>No preview</span>\'">'
+    +   '<div class="thumb-actions">'
+    +     '<button class="thumb-btn thumb-btn-load" onclick="event.stopPropagation();loadToEditor(\'' + c.id + '\')" title="Load to Editor">&#8634;</button>'
+    +     '<button class="thumb-btn thumb-btn-del" onclick="event.stopPropagation();deleteCompound(\'' + c.id + '\',\'' + esc(c.name).replace(/'/g, "\\'") + '\')" title="Delete">&#10005;</button>'
+    +   '</div>'
+    + '</div>'
+  ).join('');
+}
+
+// -------------------------------------------------------------------
+// Load to Editor
+// -------------------------------------------------------------------
+async function loadToEditor(id) {
+  const c = compounds.find(x => x.id === id);
+  if (!c || !ketcher) return;
+  try {
+    await ketcher.setMolecule(c.molfile || c.smiles);
+    showToast('"' + c.name + '" loaded into editor.', 'info');
+  } catch (e) {
+    showToast('Failed to load: ' + e.message, 'error');
+  }
+}
+
+// -------------------------------------------------------------------
+// Delete
+// -------------------------------------------------------------------
+async function deleteCompound(id, name) {
+  if (!confirm('"' + name + '" \u2014 delete this compound?')) return;
+  try {
+    const resp = await fetch('/api/compounds/' + id, { method: 'DELETE' });
+    if (!resp.ok) throw new Error('Delete failed');
+    compounds = compounds.filter(c => c.id !== id);
+    renderCompounds();
+    showToast('"' + name + '" deleted.', 'info');
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// -------------------------------------------------------------------
+// Reset All
+// -------------------------------------------------------------------
+async function resetAll() {
+  if (compounds.length === 0) return;
+  if (!confirm('All ' + compounds.length + ' compounds will be deleted. Are you sure?')) return;
+  try {
+    // Delete all one by one
+    await Promise.all(compounds.map(c =>
+      fetch('/api/compounds/' + c.id, { method: 'DELETE' })
+    ));
+    compounds = [];
+    renderCompounds();
+    showToast('Stock list cleared.', 'info');
+  } catch (e) {
+    showToast('Reset failed.', 'error');
+    loadCompounds(); // refresh from server
+  }
+}
+
+// -------------------------------------------------------------------
+// Export / Save
+// -------------------------------------------------------------------
+function exportCSV() { window.location.href = '/api/export/csv'; }
+function exportSDF() { window.location.href = '/api/export/sdf'; }
+
+async function saveData() {
+  try {
+    const resp = await fetch('/api/save', { method: 'POST' });
+    if (resp.ok) {
+      const data = await resp.json();
+      showToast('Saved (' + data.count + ' compounds).', 'success');
+    }
+  } catch (e) {
+    showToast('Save failed.', 'error');
+  }
+}
+
+// -------------------------------------------------------------------
+// Utilities
+// -------------------------------------------------------------------
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleString('ja-JP'); } catch (_) { return iso; }
+}
+
+function showToast(msg, type) {
+  const t = document.createElement('div');
+  t.className = 'toast toast-' + (type || 'info');
+  t.textContent = msg;
+  document.getElementById('toast-container').appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 350);
+  }, 2800);
+}
+
+// -------------------------------------------------------------------
+// Keyboard shortcut: Ctrl+Enter = Stock
+// -------------------------------------------------------------------
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    stockCompound();
+  }
+});
+
+// -------------------------------------------------------------------
+// Init
+// -------------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', () => {
+  initKetcher();
+  initResize();
+  initTooltip();
+  loadCompounds();
+});
+</script>
+</body>
+</html>

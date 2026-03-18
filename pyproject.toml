@@ -1,0 +1,10 @@
+[project]
+name = "chem-editor"
+version = "0.1.0"
+description = "Lightweight compound structure editor with Ketcher"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.20.0",
+    "rdkit",
+]

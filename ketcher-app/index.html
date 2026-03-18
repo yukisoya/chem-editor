@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ketcher</title>
+<style>
+  html, body, #root { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+  #debug-errors { position:fixed;bottom:0;left:0;right:0;background:#fee2e2;color:#991b1b;
+    font:12px monospace;padding:8px;max-height:40%;overflow:auto;z-index:99999;display:none; }
+</style>
+<script>
+  // Capture all errors and forward to parent + show in iframe
+  var _errs = [];
+  function _logErr(msg) {
+    _errs.push(msg);
+    var el = document.getElementById('debug-errors');
+    if (el) { el.style.display = 'block'; el.textContent = _errs.join('\n'); }
+    try { window.parent.postMessage({ type: 'ketcher-error', error: msg }, '*'); } catch(_){}
+    console.error('[ketcher-iframe]', msg);
+  }
+  window.onerror = function(msg, src, line, col) {
+    _logErr('ERR: ' + msg + ' (' + src + ':' + line + ':' + col + ')');
+  };
+  window.addEventListener('unhandledrejection', function(e) {
+    _logErr('PROMISE: ' + (e.reason && e.reason.stack || e.reason && e.reason.message || e.reason));
+  });
+</script>
+</head>
+<body>
+<div id="root"></div>
+<div id="debug-errors"></div>
+<script type="module" src="/src/main.jsx"></script>
+</body>
+</html>
