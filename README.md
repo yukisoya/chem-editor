@@ -2,6 +2,8 @@
 
 A lightweight compound structure editor powered by [Ketcher](https://github.com/epam/ketcher). Draw chemical structures, stock your ideas, and export them as CSV or SDF.
 
+![Demo](docs/demo.gif)
+
 ## Features
 
 - Ketcher-based 2D structure drawing (preserves drawn coordinates)
